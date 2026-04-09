@@ -2,10 +2,8 @@ name: 바로템 모니터링
 
 on:
   schedule:
-    # 5분마다 실행 (GitHub Actions 최소 주기)
-    # 워크플로우 내부에서 1분 간격 5회 체크
     - cron: '*/5 * * * *'
-  workflow_dispatch: # 수동 실행 가능
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -36,10 +34,8 @@ jobs:
 
       - name: Run monitor
         env:
-          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
-          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
-          KAKAO_ACCESS_TOKEN: ${{ secrets.KAKAO_ACCESS_TOKEN }}
-          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           CI: 'true'
         run: python barotem_monitor.py --ci --loop 5
 
@@ -47,6 +43,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add barotem_data.json kakao_token.json 2>/dev/null || true
+          git add barotem_data.json 2>/dev/null || true
           git diff --staged --quiet || git commit -m "update: 모니터링 데이터 갱신 $(date -u +'%Y-%m-%d %H:%M')"
           git push
