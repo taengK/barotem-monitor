@@ -48,6 +48,7 @@ KAKAO_TOKEN_FILE = os.path.join(SCRIPT_DIR, "kakao_token.json")
 
 # ─── 카카오톡 설정 (로컬용 / CI에서는 환경변수 사용) ────
 KAKAO_REST_API_KEY = os.environ.get("KAKAO_REST_API_KEY", "")
+KAKAO_CLIENT_SECRET = os.environ.get("KAKAO_CLIENT_SECRET", "")
 KAKAO_REDIRECT_URI = "http://localhost:9999/callback"
 
 
@@ -142,12 +143,15 @@ def kakao_auth():
 
     print(f"인증 코드 수신: {auth_code[:10]}...")
 
-    token_data = urllib.parse.urlencode({
+    token_params = {
         "grant_type": "authorization_code",
         "client_id": KAKAO_REST_API_KEY,
         "redirect_uri": KAKAO_REDIRECT_URI,
         "code": auth_code,
-    }).encode()
+    }
+    if KAKAO_CLIENT_SECRET:
+        token_params["client_secret"] = KAKAO_CLIENT_SECRET
+    token_data = urllib.parse.urlencode(token_params).encode()
 
     req = urllib.request.Request(
         "https://kauth.kakao.com/oauth/token",
@@ -155,8 +159,14 @@ def kakao_auth():
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
 
-    with urllib.request.urlopen(req) as resp:
-        token_info = json.loads(resp.read().decode())
+    try:
+        with urllib.request.urlopen(req) as resp:
+            token_info = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode()
+        print(f"[오류] HTTP {e.code}: {error_body}")
+        print(f"[디버그] client_id 길이: {len(KAKAO_REST_API_KEY)}, 값: {KAKAO_REST_API_KEY[:8]}...")
+        return
 
     token_info["issued_at"] = datetime.now().isoformat()
     with open(KAKAO_TOKEN_FILE, "w", encoding="utf-8") as f:
@@ -221,11 +231,14 @@ def load_kakao_token():
 def _refresh_token(refresh_token):
     """refresh_token으로 access_token 갱신"""
     try:
-        refresh_data = urllib.parse.urlencode({
+        refresh_params = {
             "grant_type": "refresh_token",
             "client_id": KAKAO_REST_API_KEY,
             "refresh_token": refresh_token,
-        }).encode()
+        }
+        if KAKAO_CLIENT_SECRET:
+            refresh_params["client_secret"] = KAKAO_CLIENT_SECRET
+        refresh_data = urllib.parse.urlencode(refresh_params).encode()
 
         req = urllib.request.Request(
             "https://kauth.kakao.com/oauth/token",
